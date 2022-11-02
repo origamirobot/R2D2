@@ -5,7 +5,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-
+    <PropertyGroup>
+	    <SshDeployHost>r2d2.local</SshDeployHost>
+	    <SshDeployClean />
+	    <SshDeployTargetPath>/home/r2d2/controller</SshDeployTargetPath>
+	    <SshDeployUsername>r2d2</SshDeployUsername>
+	    <SshDeployPassword>r2d2r2d2</SshDeployPassword>
+	    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
+		<RuntimeIdentifier>linux-arm</RuntimeIdentifier>
+    </PropertyGroup>
+	<Target Condition="$(BuildingInsideSshDeploy) ==''" Name="PostBuild" AfterTargets="PostBuildEvent">
+		<Exec Command="cd $(ProjectDir)" />
+		<Exec Command="dotnet-sshdeploy push" />
+	</Target>	
   <ItemGroup>
     <None Remove="Banner.txt" />
   </ItemGroup>

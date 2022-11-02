@@ -11,3 +11,8 @@ Enable I2C interface on Raspberry Pi
 > sudo raspi-config
 > Interface Options
 > Enable/Disable automatic loading of I2C kernel module
+
+Enable SSH Deploy In .NET
+
+> dotnet tool install -g dotnet-sshdeploy
+
