@@ -16,3 +16,7 @@ Enable SSH Deploy In .NET
 
 > dotnet tool install -g dotnet-sshdeploy
 
+
+Detect I2C devices connected to Raspi
+
+> sudo i2cdetect -y 1

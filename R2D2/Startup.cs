@@ -13,7 +13,7 @@
 		/// <param name="services">The services.</param>
 		public void ConfigureServices(IServiceCollection services)
 		{
-			services.AddGrpc();
+
 		}
 
 		/// <summary>

@@ -1,7 +1,6 @@
 using R2D2;
+using System.Device.Gpio;
 using System.Runtime.InteropServices;
-using Unosquare.RaspberryIO;
-using Unosquare.WiringPi;
 
 var isRaspberryPi = RuntimeInformation.RuntimeIdentifier.StartsWith("raspbian");
 
@@ -12,13 +11,13 @@ var hostBuilder = Host.CreateDefaultBuilder(args)
 			.AddJsonFile(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "r2d2.json"), optional: true, reloadOnChange: true))
 	.ConfigureServices((ctx, services) =>
 	{
-		services.AddSingleton(x =>
-		{
-			//if (!isRaspberryPi)
-			//	return new FakeGpioController();
-			Pi.Init<BootstrapWiringPi>();
-			return Pi.Gpio;
-		});
+		//services.AddSingleton(x =>
+		//{
+		//	//if (!isRaspberryPi)
+		//	//	return new FakeGpioController();
+		//	//Pi.Init<BootstrapWiringPi>();
+		//	//return Pi.Gpio;
+		//});
 		services.AddSingleton(new CancellationTokenSource());
 	})
 	.ConfigureWebHostDefaults(webBuilder => webBuilder.UseStartup<Startup>());
@@ -35,6 +34,48 @@ if(isRaspberryPi)
 
 using var host = hostBuilder.Build();
 Banner.Show();
+Console.WriteLine("------------------------------------------------");
+
+
+
+
+
+var controller = new GpioController(PinNumberingScheme.Board);
+var pin = 10;
+var lightTime = 300;
+
+controller.OpenPin(pin, PinMode.Output);
+
+try
+{
+	while(true)
+	{
+		controller.Write(pin, PinValue.High);
+		Thread.Sleep(lightTime);
+		controller.Write(pin, PinValue.Low);
+		Thread.Sleep(lightTime);
+	}
+}
+finally
+{
+	controller.ClosePin(pin);
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+Console.WriteLine("Starting Web Server");
 await host.RunAsync(host.Services.GetRequiredService<CancellationTokenSource>().Token);
 Console.WriteLine("Exiting R2D2 Control System");
+
+
 
