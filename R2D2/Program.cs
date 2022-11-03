@@ -1,5 +1,10 @@
+using Iot.Device.FtCommon;
+using Iot.Device.Pwm;
+using Iot.Device.ServoMotor;
 using R2D2;
 using System.Device.Gpio;
+using System.Device.I2c;
+using System.Device.Pwm;
 using System.Runtime.InteropServices;
 
 var isRaspberryPi = RuntimeInformation.RuntimeIdentifier.StartsWith("raspbian");
@@ -37,39 +42,21 @@ Banner.Show();
 Console.WriteLine("------------------------------------------------");
 
 
-
-
-
-var controller = new GpioController(PinNumberingScheme.Board);
-var pin = 10;
-var lightTime = 300;
-
-controller.OpenPin(pin, PinMode.Output);
-
-try
+var settings = new I2cConnectionSettings(1, 64);
+var device = I2cDevice.Create(settings);
+using (var pca9685 = new Pca9685(device, pwmFrequency: 50))
 {
-	while(true)
-	{
-		controller.Write(pin, PinValue.High);
-		Thread.Sleep(lightTime);
-		controller.Write(pin, PinValue.Low);
-		Thread.Sleep(lightTime);
-	}
+	pca9685.SetDutyCycleAllChannels(1);
+	PwmChannel firstChannel = pca9685.CreatePwmChannel(0); // channel 0
+
+	var motor = new ServoMotor(firstChannel, 180, minimumPulseWidthMicroseconds: 500, maximumPulseWidthMicroseconds: 2500);
+	motor.Start();
+	motor.WriteAngle(0);
+	motor.WritePulseWidth(90);
+	motor.WritePulseWidth(180);
+	motor.Stop();
 }
-finally
-{
-	controller.ClosePin(pin);
-
-}
-
-
-
-
-
-
-
-
-
+ 
 
 
 

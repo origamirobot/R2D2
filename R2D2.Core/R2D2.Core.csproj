@@ -7,12 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="I2C\" />
     <Folder Include="Logging\" />
     <Folder Include="PWM\" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Iot.Device.Bindings" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
     <PackageReference Include="System.Device.Gpio" Version="2.2.0" />
   </ItemGroup>
