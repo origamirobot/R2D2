@@ -1,24 +1,26 @@
-﻿namespace R2D2.Core.Control
+﻿using R2D2.Core.IO;
+
+namespace R2D2.Core.Control
 {
 
 	/// <summary>
 	/// Generic Linux game controller based off a /dev/input/{joystick} device file.
 	/// </summary>
-	public class GamepadController
+	public class GamepadController : IDisposable
 	{
 
 		#region PROTECTED PROPERTIES
 
 
 		/// <summary>
-		/// Gets the device file to use for communications.
-		/// </summary>
-		protected String DeviceFile { get; private set; }
-
-		/// <summary>
 		/// Gets the cancellation source.
 		/// </summary>
 		protected CancellationTokenSource CancellationSource { get; private set; }
+
+		/// <summary>
+		/// Gets the file stream.
+		/// </summary>
+		protected IFileStream FileStream { get; private set; }
 
 
 		#endregion PROTECTED PROPERTIES
@@ -63,12 +65,16 @@
 		/// </summary>
 		/// <param name="deviceFile">The device file.</param>
 		public GamepadController(String deviceFile = "/dev/input/js0")
-		{
-			if(!File.Exists(deviceFile))
-				throw new ArgumentException(nameof(deviceFile), $"The device {deviceFile} does not exist");
+			: this(new FileStreamWrapper(deviceFile, FileMode.Open)) { }
 
-			DeviceFile = deviceFile;
+		/// <summary>
+		/// Initializes a new instance of the <see cref="GamepadController"/> class.
+		/// </summary>
+		/// <param name="fileStream">The device file file-stream.</param>
+		public GamepadController(IFileStream fileStream)
+		{
 			CancellationSource = new CancellationTokenSource();
+			FileStream = fileStream;
 			Task.Factory.StartNew(() => ProcessMessages(CancellationSource.Token));
 		}
 
@@ -106,17 +112,14 @@
 		/// <param name="cancellationToken">The cancellation token.</param>
 		protected virtual void ProcessMessages(CancellationToken cancellationToken)
 		{
-			using (var fs = new FileStream(DeviceFile, FileMode.Open))
+			var message = new Byte[8];
+			while(!cancellationToken.IsCancellationRequested)
 			{
-				var message = new Byte[8];
-				while(!cancellationToken.IsCancellationRequested)
-				{
-					// READ 8 BYTES AT A TIME FROM THE DEVICE FILE TO CHECK FOR STATE CHANGES IN THE CONTROLLER
-					fs.Read(message, 0, 8);
-					if (message.HasConfiguration())
-						ProcessConfiguration(message);
-					ProcessValues(message);
-				}
+				// READ 8 BYTES AT A TIME FROM THE DEVICE FILE TO CHECK FOR STATE CHANGES IN THE CONTROLLER
+				FileStream.Read(message, 0, 8);
+				if (message.HasConfiguration())
+					ProcessConfiguration(message);
+				ProcessValues(message);
 			}
 		}
 
@@ -175,6 +178,20 @@
 
 
 		#endregion PROTECTED METHODS
+
+		#region PUBLIC METHODS
+
+
+		/// <summary>
+		/// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+		/// </summary>
+		public void Dispose()
+		{
+			FileStream.Dispose();
+		}
+
+
+		#endregion PUBLIC METHODS
 
 	}
 
