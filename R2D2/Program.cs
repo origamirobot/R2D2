@@ -1,40 +1,58 @@
-using Iot.Device.FtCommon;
-using Iot.Device.Pwm;
-using Iot.Device.ServoMotor;
 using R2D2;
-using System.Device.Gpio;
-using System.Device.I2c;
-using System.Device.Pwm;
+using R2D2.Core.Configuration;
+using R2D2.Core.Control;
+using R2D2.Core.Network;
+using R2D2.Core.PWM;
+using R2D2.Core.Servos;
+using R2D2.Core.Utilities;
 using System.Runtime.InteropServices;
 
 var isRaspberryPi = RuntimeInformation.RuntimeIdentifier.StartsWith("raspbian");
 
+
+// CREATE PRE-BUILT CONFIGURATION TO USE CONFIG VALUES IN BOOTSTRAP PROCESS
+var config = new ConfigurationBuilder()
+	.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "webServer.json"), optional: false, reloadOnChange: true)
+	.Build();
+var webServerSettings = config.Get<WebServerSettings>();
+
+
 var hostBuilder = Host.CreateDefaultBuilder(args)
 	.ConfigureAppConfiguration(builder =>
+	{
+		builder.Sources.Clear();
 		builder
-			.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json"), optional: false, reloadOnChange: true)
-			.AddJsonFile(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "r2d2.json"), optional: true, reloadOnChange: true))
+			.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "r2d2.json"), optional: false, reloadOnChange: true)
+			.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "webServer.json"), optional: false, reloadOnChange: true)
+			.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "controllers.json"), optional: false, reloadOnChange: true);
+	})
 	.ConfigureServices((ctx, services) =>
 	{
-		//services.AddSingleton(x =>
-		//{
-		//	//if (!isRaspberryPi)
-		//	//	return new FakeGpioController();
-		//	//Pi.Init<BootstrapWiringPi>();
-		//	//return Pi.Gpio;
-		//});
 		services.AddSingleton(new CancellationTokenSource());
+		services.Configure<R2D2Settings>(ctx.Configuration.GetSection("r2d2"));
+		services.Configure<WebServerSettings>(ctx.Configuration.GetSection("webServer"));
+		services.Configure<ControllerSettings>(ctx.Configuration.GetSection("controllers"));
+		services.AddSingleton<IServoFactory, ServoFactory>();
+		services.AddSingleton<IPwmControllerFactory, PwmControllerFactory>();
+		services.AddSingleton<INetworkInterfaces, NetworkInterfaces>();
+		services.AddSingleton<ISystemUtility, SystemUtility>();
+
 	})
 	.ConfigureWebHostDefaults(webBuilder => webBuilder.UseStartup<Startup>());
 
 
 if(isRaspberryPi)
 {
+	// USE KESTREL WEBSERVER IF RUNNING ON RASPBERRY PI
 	hostBuilder = hostBuilder
 		.ConfigureWebHost(host => host.UseKestrel(options => options.Listen(
 			System.Net.IPAddress.Any,
-			5001,
-			listenOptions => { if (System.IO.File.Exists("/raspberrypi.pfx")) listenOptions.UseHttps("/raspberrypi.pfx"); })));
+			webServerSettings.Port,
+			listenOptions =>
+			{
+				if (webServerSettings.useHttps && !String.IsNullOrEmpty(webServerSettings.SslCertificate))
+					listenOptions.UseHttps(webServerSettings.SslCertificate);
+			})));
 }
 
 using var host = hostBuilder.Build();
@@ -42,26 +60,24 @@ Banner.Show();
 Console.WriteLine("------------------------------------------------");
 
 
-var settings = new I2cConnectionSettings(1, 64);
-var device = I2cDevice.Create(settings);
-using (var pca9685 = new Pca9685(device, pwmFrequency: 50))
+var controller = new GamepadController("/dev/input/js0");
+controller.AxisChanged += (Object? sender, AxisEventArgs e) => Console.WriteLine($"Axis: {e.Axis}, Value: {e.Value}");
+controller.ButtonChanged += (Object? sender, ButtonEventArgs e) => Console.WriteLine($"Button: {e.Button}, Pressed: {e.Pressed}");
+
+
+
+
+if (webServerSettings.Enabled)
 {
-	pca9685.SetDutyCycleAllChannels(1);
-	PwmChannel firstChannel = pca9685.CreatePwmChannel(0); // channel 0
-
-	var motor = new ServoMotor(firstChannel, 180, minimumPulseWidthMicroseconds: 500, maximumPulseWidthMicroseconds: 2500);
-	motor.Start();
-	motor.WriteAngle(0);
-	motor.WritePulseWidth(90);
-	motor.WritePulseWidth(180);
-	motor.Stop();
+	Console.WriteLine("Starting Web Server");
+	await host.RunAsync(host.Services.GetRequiredService<CancellationTokenSource>().Token);
 }
- 
+else
+{
+	Console.WriteLine("Web Server disabled in settings");
+}
 
-
-
-Console.WriteLine("Starting Web Server");
-await host.RunAsync(host.Services.GetRequiredService<CancellationTokenSource>().Token);
+Console.ReadLine();
 Console.WriteLine("Exiting R2D2 Control System");
 
 

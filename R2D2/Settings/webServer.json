@@ -1,0 +1,8 @@
+{
+	"webServer": {
+		"enabled": false,
+		"port": 5001,
+		"useHttps": false,
+		"sslCertificate": "/raspberrypi.pfx"
+	}
+}

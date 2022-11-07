@@ -20,3 +20,16 @@ Enable SSH Deploy In .NET
 Detect I2C devices connected to Raspi
 
 > sudo i2cdetect -y 1
+
+
+### Controller Setup
+
+Update package manager and install XBox Controller drivers.
+
+> sudo apt update
+> sudo apt upgrade
+> sudo apt install xboxdrv
+> sudo apt install joystick
+> sudo jstest /dev/input/js0
+
+

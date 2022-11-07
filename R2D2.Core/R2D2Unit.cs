@@ -33,7 +33,7 @@ namespace R2D2.Core
 
 
 		protected ILogger<R2D2Unit> Logger { get; private set; }
-		protected R2D2Configuration Settings { get; private set; }
+		protected R2D2Settings Settings { get; private set; }
 		protected IServoFactory ServoFactory { get; private set; }
 		protected IPwmControllerFactory PwmControllerFactory { get; private set; }
 		
@@ -49,7 +49,7 @@ namespace R2D2.Core
 		/// <param name="settings"></param>
 		/// <param name="logger"></param>
 		public R2D2Unit(
-			R2D2Configuration settings,
+			R2D2Settings settings,
 			ILogger<R2D2Unit> logger, 
 			IServoFactory servoFactory, 
 			IPwmControllerFactory pwmControllerFactory)
@@ -82,18 +82,22 @@ namespace R2D2.Core
 			Logger.LogDebug("Initializing PWM Controllers");
 			foreach (var settings in Settings.PwmControllers)
 			{
-				var pwmController = PwmControllerFactory.Create(settings);
+				var pwmController = PwmControllerFactory.CreateController(settings);
 				_pwmControllers.Add(pwmController);
+
+				Logger.LogDebug($"Initializing Servo Motors for Controller {settings.Name}");
+				foreach (var servoSettings in Settings.Servos.Where(x => x.ControllerAddress == settings.Address))
+				{
+
+					var channel = pwmController.CreatePwmChannel(servoSettings.Channel);
+					var servo = ServoFactory.Create(channel, servoSettings);
+					_servoMotors.Add(servo);
+				}
+
 			}
 			Logger.LogDebug($"{_pwmControllers.Count} PWM Controllers initialized");
 
 			// INITIALIZE ALL OF THE SERVO MOTORS
-			Logger.LogDebug("Initializing Servo Motors");
-			foreach (var settings in Settings.Servos)
-			{
-				var servo = ServoFactory.Create(settings);
-				_servoMotors.Add(servo);
-			}
 			Logger.LogDebug($"{_servoMotors.Count} Servo Motors initialized");
 		}
 

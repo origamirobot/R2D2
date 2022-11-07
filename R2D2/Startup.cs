@@ -13,7 +13,7 @@
 		/// <param name="services">The services.</param>
 		public void ConfigureServices(IServiceCollection services)
 		{
-
+			
 		}
 
 		/// <summary>
@@ -36,7 +36,7 @@
 					await context.Response.WriteAsync(banner);
 				});
 			});
-		}
+		} 
 
 	}
 

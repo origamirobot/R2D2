@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace R2D2.Core.Configuration
 {
 
-	public class DomeMotorConfiguration
+	public class DomeMotorSettings
 	{
 	}
 
