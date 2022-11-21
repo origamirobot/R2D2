@@ -33,3 +33,18 @@ Update package manager and install XBox Controller drivers.
 > sudo jstest /dev/input/js0
 
 
+
+## Serial Communications
+
+Raspberry Pi uses pins 8 (TX) and 10 (RX) for serial communications. On Raspberry Pi 3B, there are two serial ports: UART0 and UART1. If Bluetooth is enabled, it will take over UART0 leaving only UART1
+
+Disable Bluetooth
+> sudo nano /boot/config.txt
+> dtoverlay=disable-bt
+
+
+Detect if a serial device is connected
+> dmesg | grep "ttyA"
+
+
+

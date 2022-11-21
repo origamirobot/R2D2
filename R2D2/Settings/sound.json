@@ -1,0 +1,11 @@
+﻿{
+	"sound": {
+		"deviceFile": "/dev/ttyAMA0",
+		"baudRate": 38400,
+		"bitCount": 8,
+		"stopBits": "One",
+		"writeTimeout": 300,
+		"readTimeout": 30000,
+		"parity": "None"
+	}
+}
