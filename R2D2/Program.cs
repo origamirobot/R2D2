@@ -16,17 +16,30 @@ using R2D2.Core.Sound;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using R2D2.Core.Exceptions;
+using R2D2.Core.IO;
+using Serilog;
 
 var isRaspberryPi = RuntimeInformation.RuntimeIdentifier.StartsWith("raspbian");
 
 
-// CREATE PRE-BUILT CONFIGURATION TO USE CONFIG VALUES IN BOOTSTRAP PROCESS
-var config = new ConfigurationBuilder()
-	.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "sound.json"), optional: false, reloadOnChange: true)
-	.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "webServer.json"), optional: false, reloadOnChange: true)
-	.Build();
-var webServerSettings = config.Get<WebServerSettings>();
+// CREATE LOGGERS
+var logger = LoggerFactory.Create(config =>
+{
+	config.AddConsole();
+}).CreateLogger("Program");
 
+
+
+
+
+
+
+
+
+
+// CREATE PRE-BUILT CONFIGURATION TO USE CONFIG VALUES IN BOOTSTRAP PROCESS
+IConfigurationRoot? config = null;
+WebServerSettings? webServerSettings = null;
 
 var hostBuilder = Host.CreateDefaultBuilder(args)
 	.ConfigureAppConfiguration(builder =>
@@ -37,6 +50,7 @@ var hostBuilder = Host.CreateDefaultBuilder(args)
 			.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "sound.json"), optional: false, reloadOnChange: true)
 			.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "webServer.json"), optional: false, reloadOnChange: true)
 			.AddJsonFile(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "controllers.json"), optional: false, reloadOnChange: true);
+		config = builder.Build();
 	})
 	.ConfigureServices((ctx, services) =>
 	{
@@ -49,11 +63,10 @@ var hostBuilder = Host.CreateDefaultBuilder(args)
 		services.AddSingleton<IPwmControllerFactory, PwmControllerFactory>();
 		services.AddSingleton<INetworkInterfaces, NetworkInterfaces>();
 		services.AddSingleton<ISystemUtility, SystemUtility>();
+		services.AddSingleton<IFileUtility, FileUtility>();
 		services.AddTransient<ISerialPort, SerialPortWrapper>();
 		services.AddSingleton<ISoundTrigger>((serviceProvider) =>
 		{
-
-
 			var soundSettings = serviceProvider.GetService<IOptions<SoundSettings>>();
 			if (soundSettings == null)
 				throw new ConfigurationException();
@@ -67,26 +80,35 @@ var hostBuilder = Host.CreateDefaultBuilder(args)
 				ReadTimeout = soundSettings.Value.ReadTimeout,
 				WriteTimeout =soundSettings.Value.WriteTimeout
 			};
-			return new SparkFunMp3Trigger(serialPort);
+			return new SparkFunMp3Trigger(serialPort, serviceProvider.GetService<ILogger<SparkFunMp3Trigger>>());
 		});
 
+	})
+	.ConfigureLogging(builder =>
+	{
+		builder.AddFilter("Microsoft", LogLevel.Warning).AddFilter("System", LogLevel.Warning);
+		Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(config).CreateLogger();
+ 		//builder.AddSerilog();
+
+		builder.AddConsole();
 	})
 	.ConfigureWebHostDefaults(webBuilder => webBuilder.UseStartup<Startup>());
 
 
-if(isRaspberryPi)
-{
-	// USE KESTREL WEBSERVER IF RUNNING ON RASPBERRY PI
-	hostBuilder = hostBuilder
-		.ConfigureWebHost(host => host.UseKestrel(options => options.Listen(
-			System.Net.IPAddress.Any,
-			webServerSettings.Port,
-			listenOptions =>
-			{
-				if (webServerSettings.useHttps && !String.IsNullOrEmpty(webServerSettings.SslCertificate))
-					listenOptions.UseHttps(webServerSettings.SslCertificate);
-			})));
-}
+//if(isRaspberryPi)
+//{
+//	// USE KESTREL WEBSERVER IF RUNNING ON RASPBERRY PI
+//	webServerSettings = config.Get<WebServerSettings>();
+//	hostBuilder = hostBuilder
+//		.ConfigureWebHost(host => host.UseKestrel(options => options.Listen(
+//			System.Net.IPAddress.Any,
+//			webServerSettings.Port,
+//			listenOptions =>
+//			{
+//				if (webServerSettings.useHttps && !String.IsNullOrEmpty(webServerSettings.SslCertificate))
+//					listenOptions.UseHttps(webServerSettings.SslCertificate);
+//			})));
+//}
 
 using var host = hostBuilder.Build();
 Banner.Show();
@@ -95,36 +117,42 @@ Console.WriteLine("------------------------------------------------");
 
 
 
-Console.WriteLine("Sound Trigger Initializing");
 var soundTrigger = host.Services.GetService<ISoundTrigger>();
+soundTrigger.Initialize();
+
+var controller = new GamepadController("/dev/input/js0");
+controller.ButtonChanged += (Object? sender, ButtonEventArgs e) => 
+{
+	if (!e.Pressed) return;
+	soundTrigger.Play(e.Button);
+};
 
 
 
+//Console.WriteLine("Playing Track 1");
+//soundTrigger.Play(1);
 
-Console.WriteLine("Playing Track 1");
-soundTrigger.Play(1);
-
-Thread.Sleep(1000);
-Console.WriteLine("Forward");
-soundTrigger.Forward();
-Console.WriteLine("Play/Pause");
-soundTrigger.PlayPause();
-Thread.Sleep(1000);
-Console.WriteLine("Forward");
-soundTrigger.Forward();
-Console.WriteLine("Play/Pause");
-soundTrigger.PlayPause();
-Thread.Sleep(1000);
-Console.WriteLine("Forward");
-soundTrigger.Forward();
-Console.WriteLine("Play/Pause");
-soundTrigger.PlayPause();
-Thread.Sleep(1000);
-Console.WriteLine("Playing Track 2");
-soundTrigger.Play(2);
-Thread.Sleep(1000);
-Console.WriteLine("Triggering Track 1");
-soundTrigger.Trigger(1);
+//Thread.Sleep(1000);
+//Console.WriteLine("Forward");
+//soundTrigger.Forward();
+//Console.WriteLine("Play/Pause");
+//soundTrigger.PlayPause();
+//Thread.Sleep(1000);
+//Console.WriteLine("Forward");
+//soundTrigger.Forward();
+//Console.WriteLine("Play/Pause");
+//soundTrigger.PlayPause();
+//Thread.Sleep(1000);
+//Console.WriteLine("Forward");
+//soundTrigger.Forward();
+//Console.WriteLine("Play/Pause");
+//soundTrigger.PlayPause();
+//Thread.Sleep(1000);
+//Console.WriteLine("Playing Track 2");
+//soundTrigger.Play(2);
+//Thread.Sleep(1000);
+//Console.WriteLine("Triggering Track 1");
+//soundTrigger.Trigger(1);
 
 
 
@@ -166,15 +194,15 @@ Console.ReadLine();
 
 
 
-if (webServerSettings.Enabled)
-{
-	Console.WriteLine("Starting Web Server");
-	await host.RunAsync(host.Services.GetRequiredService<CancellationTokenSource>().Token);
-}
-else
-{
-	Console.WriteLine("Web Server disabled in settings");
-}
+//if (webServerSettings != null && webServerSettings.Enabled)
+//{
+//	Console.WriteLine("Starting Web Server");
+//	await host.RunAsync(host.Services.GetRequiredService<CancellationTokenSource>().Token);
+//}
+//else
+//{
+//	Console.WriteLine("Web Server disabled in settings");
+//}
 
 Console.ReadLine();
 Console.WriteLine("Exiting R2D2 Control System");

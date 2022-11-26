@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using R2D2.Core.Configuration;
 using R2D2.Core.PWM;
 using R2D2.Core.Servos;
+using R2D2.Core.Sound;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +37,8 @@ namespace R2D2.Core
 		protected R2D2Settings Settings { get; private set; }
 		protected IServoFactory ServoFactory { get; private set; }
 		protected IPwmControllerFactory PwmControllerFactory { get; private set; }
-		
+		protected ISoundTrigger SoundTrigger { get; private set; }
+
 
 		#endregion PROTECTED PROPERTIES
 
@@ -44,20 +46,25 @@ namespace R2D2.Core
 
 
 		/// <summary>
-		/// 
+		/// Initializes a new instance of the <see cref="R2D2Unit"/> class.
 		/// </summary>
-		/// <param name="settings"></param>
-		/// <param name="logger"></param>
+		/// <param name="settings">The settings.</param>
+		/// <param name="logger">The logger.</param>
+		/// <param name="servoFactory">The servo factory.</param>
+		/// <param name="pwmControllerFactory">The PWM controller factory.</param>
+		/// <param name="soundTrigger">The sound trigger.</param>
 		public R2D2Unit(
 			R2D2Settings settings,
 			ILogger<R2D2Unit> logger, 
 			IServoFactory servoFactory, 
-			IPwmControllerFactory pwmControllerFactory)
+			IPwmControllerFactory pwmControllerFactory,
+			ISoundTrigger soundTrigger)
 		{
 			Settings = settings;
 			Logger = logger;
 			ServoFactory = servoFactory;
 			PwmControllerFactory = pwmControllerFactory;
+			SoundTrigger = soundTrigger;
 		}
 
 
@@ -98,7 +105,12 @@ namespace R2D2.Core
 			Logger.LogDebug($"{_pwmControllers.Count} PWM Controllers initialized");
 
 			// INITIALIZE ALL OF THE SERVO MOTORS
+			// TODO: Initialize servo motors
 			Logger.LogDebug($"{_servoMotors.Count} Servo Motors initialized");
+
+			// INITIALIZE SOUND TRIGGER
+			SoundTrigger.Initialize();
+
 		}
 
 
